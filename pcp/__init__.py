@@ -1,4 +1,5 @@
 import numpy as np
+import panel as pn
 from bokeh.models import (
     BasicTickFormatter,
     ColumnDataSource,
@@ -11,10 +12,13 @@ from bokeh.models import (
     TapTool,
     WheelZoomTool,
     Rect,
+    Model,
 )
+from bokeh.core.enums import LineDash, LineCap, MarkerType, NamedColor
+from bokeh.models.plots import _list_attr_splat
 from bokeh.plotting import figure
 
-from .models import PCPBoxAnnotation, PCPSelectionTool, PCPResetTool
+from .models import PCPSelectionTool, PCPResetTool, PCPBoxAnnotation
 
 
 def parallel_plot(df_raw, drop=None, color=None, palette=None):
@@ -47,7 +51,13 @@ def parallel_plot(df_raw, drop=None, color=None, palette=None):
         )
     )
 
-    p = figure(x_range=(-1, ndims), y_range=(0, 1), width=1000, tools="pan, box_zoom", output_backend="webgl")
+    p = figure(
+        x_range=(-1, ndims),
+        y_range=(0, 1),
+        width=1000,
+        tools="pan, box_zoom",
+        output_backend="webgl",
+    )
 
     # Create x axis ticks from columns contained in dataframe
     fixed_x_ticks = FixedTicker(ticks=np.arange(ndims), minor_ticks=[])
@@ -155,3 +165,77 @@ def parallel_plot(df_raw, drop=None, color=None, palette=None):
     p.toolbar.active_drag = selection_tool
     p.toolbar.active_tap = None
     return p
+
+
+def meta_widgets(model, **kwargs):
+    tabs = pn.Tabs(**kwargs)
+    widgets = get_widgets(model)
+    if widgets:
+        tabs.append((type(model).__name__, widgets))
+    for p, v in model.properties_with_values().items():
+        if isinstance(v, _list_attr_splat):
+            v = v[0]
+        if isinstance(v, Model):
+            subtabs = meta_widgets(v, **kwargs)
+            if subtabs is not None:
+                tabs.append((p.title(), subtabs))
+
+    if hasattr(model, "renderers"):
+        if model.renderers != "auto":    
+            for r in model.renderers:
+                tabs.append((type(r).__name__, meta_widgets(r, **kwargs)))
+    if hasattr(model, "axis") and isinstance(model.axis, list):
+        for pre, axis in zip("XY", model.axis):
+            tabs.append(("%s-Axis" % pre, meta_widgets(axis, **kwargs)))
+    if hasattr(model, "grid"):
+        for pre, grid in zip("XY", model.grid):
+            tabs.append(("%s-Grid" % pre, meta_widgets(grid, **kwargs)))
+    if not widgets and not len(tabs) > 0:
+        return None
+    elif not len(tabs) > 1:
+        return tabs[0]
+    return tabs
+
+
+def get_widgets(model, skip_none=True, **kwargs):
+    widgets = []
+
+    print
+    for p, v in model.properties_with_values().items():
+        if isinstance(v, dict):
+            if "value" in v:
+                v = v.get("value")
+            else:
+                continue
+        if v is None and skip_none:
+            continue
+
+        ps = dict(name=p, value=v, **kwargs)
+        if "alpha" in p:
+            w = pn.widgets.FloatSlider(start=0, end=1, **ps)
+        elif "color" in p:
+            if v in list(NamedColor):
+                w = pn.widgets.Select(options=list(NamedColor), **ps)
+            else:
+                w = pn.widgets.ColorPicker(**ps)
+        elif p.endswith("width"):
+            w = pn.widgets.FloatSlider(start=0, end=20, **ps)
+        elif "marker" in p:
+            w = pn.widgets.Select(name=p, options=list(MarkerType), value=v)
+        elif p.endswith("cap"):
+            w = pn.widgets.Select(name=p, options=list(LineCap), value=v)
+        elif p == "size":
+            w = pn.widgets.FloatSlider(start=0, end=20, **ps)
+        elif p.endswith("text") or p.endswith("label"):
+            w = pn.widgets.TextInput(**ps)
+        elif p.endswith("dash"):
+            patterns = list(LineDash)
+            if not isinstance(v, list):
+                w = pn.widgets.Select(name=p, options=patterns, value=v or patterns[0])
+            else:
+                continue
+        else:
+            continue
+        w.jslink(model, value=p)
+        widgets.append(w)
+    return pn.Column(*sorted(widgets, key=lambda w: w.name))

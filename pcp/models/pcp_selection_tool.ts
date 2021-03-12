@@ -3,7 +3,7 @@ import {BoxSelectTool, BoxSelectToolView} from "@bokehjs/models/tools/gestures/b
 import {Rect} from "@bokehjs/models/glyphs/rect"
 import {ColumnDataSource} from "@bokehjs/models/sources/column_data_source"
 import {GlyphRenderer} from "@bokehjs/models/renderers/glyph_renderer"
-import {ColumnarDataSource, MultiLine, Scale} from "@bokehjs/models"
+import {CartesianFrame, ColumnarDataSource, MultiLine, Scale} from "@bokehjs/models"
 import {MoveEvent, PanEvent, TapEvent, KeyEvent} from "@bokehjs/core/ui_events"
 import {intersection, union, transpose} from "@bokehjs/core/util/array"
 import {SelectionMode} from "@bokehjs/core/enums"
@@ -85,21 +85,18 @@ export class PCPSelectionView extends BoxSelectToolView {
     indices: number[]
   }[] //must be synchronize with element of cds_select
   private is_mouse_down: boolean = false
-  // private click_position: ScreenCoord | null
   
   initialize(): void {
     super.initialize()
-    
-    const {frame} = this.plot_view
     
     const {x_range_name: x_range_name_select, y_range_name: y_range_name_select} = this.model.renderer_select
     const {x_range_name: x_range_name_data, y_range_name: y_range_name_data} = this.model.renderer_data
     
     if (x_range_name_select == x_range_name_data && y_range_name_select == y_range_name_data) {
-      this.xscale = frame.x_scales.get(x_range_name_select)!
-      this.yscale = frame.y_scales.get(y_range_name_select)!
+      this.xscale = this.frame.x_scales.get(x_range_name_select)!
+      this.yscale = this.frame.y_scales.get(y_range_name_select)!
     } else
-    throw new Error("selection and data does not share the same ranges")
+      throw new Error("selection and data does not share the same ranges")
     
     //TODO test if parallel CDS is valid (xs for each line should be identical)
     this.glyph_select = this.model.renderer_select.glyph
@@ -112,23 +109,46 @@ export class PCPSelectionView extends BoxSelectToolView {
     this.xdata = this.cds_data.get_array(xskey)[0] as number[]
     this.ydataT = transpose(this.cds_data.get_array(yskey))
     this.selection_indices = []
-    
-    this.connect(frame.x_ranges.get(x_range_name_select)!.change, () => this._resize_boxes_on_zoom())
+
+    this.hit_area.addEventListener("mousedown", (ev: MouseEvent) => this._mouse_down(ev))
+    this.hit_area.addEventListener("mouseup", () => this._mouse_up())
+  }
+
+  get frame(): CartesianFrame {
+    return this.plot_view.frame
+  }
+
+  connect_signals() {
+    super.connect_signals()
+    const {x_range_name: x_range_name_select} = this.model.renderer_select
+    this.connect(this.frame.x_ranges.get(x_range_name_select)!.change, () => this._resize_boxes_on_zoom())
     this.connect(this.cds_select.change, () => this._update_data_selection())
-    
-    const {active} = this.model.properties
-    this.on_change(active, () => (!this.model.active) ? this._update_overlay_bbox(-1): null)
-    
-    this.plot_view.canvas_view.el.addEventListener("mousedown", (ev: MouseEvent) => this._mouse_down(ev))
-    this.plot_view.canvas_view.el.addEventListener("mouseup", () => this._mouse_up())
+    this.connect(this.model.properties.active.change, () => (!this.model.active) ? this._update_overlay_bbox(-1): null)
   }
   
+  get hit_area(): HTMLElement {
+    return this.plot_view.canvas_view.events_el
+  }
+  
+  get overlay_view(): BoxAnnotationView {
+    return (this.plot_view.get_renderer_views().filter(view => view.model===this.model.overlay)[0] as any)
+  }
+  
+  get _box_width(): number {
+    return Math.abs(this.xscale.invert(this.model.box_width) - this.xscale.invert(0))
+  }
+  
+  get _cds_select_keys() {
+    const glyph_select: any = this.glyph_select
+    const [xkey, ykey] = [glyph_select.x.field, glyph_select.y.field]
+    const [wkey, hkey] = [glyph_select.width.field, glyph_select.height.field]
+    return {xkey, ykey, wkey, hkey}
+  }
+
   _mouse_down(ev: MouseEvent): void {
-    console.log("Mouse down")
     this.is_mouse_down = true
-    const hit_area = this.plot_view.canvas_view.events_el
     const {pageX, pageY} = ev
-    const {left, top} = offset(hit_area)
+    const {left, top} = offset(this.hit_area)
     const sx = pageX - left, sy = pageY - top
     this.ind_active_box = this._hit_test_boxes(sx, sy)
     if (this.ind_active_box != null) {
@@ -145,23 +165,7 @@ export class PCPSelectionView extends BoxSelectToolView {
   _mouse_up(): void {
     this.is_mouse_down = false
   }
-  
-  
-  get overlay_view(): BoxAnnotationView {
-    return (this.plot_view.get_renderer_views().filter(view => view.model===this.model.overlay)[0] as any)
-  }
-  
-  get _box_width(): number {
-    return Math.abs(this.xscale.invert(this.model.box_width) - this.xscale.invert(0))
-  }
-  
-  get _cds_select_keys() {
-    const glyph_select: any = this.glyph_select
-    const [xkey, ykey] = [glyph_select.x.field, glyph_select.y.field]
-    const [wkey, hkey] = [glyph_select.width.field, glyph_select.height.field]
-    return {xkey, ykey, wkey, hkey}
-  }
-  
+
   _emit_cds_changes(cds: ColumnarDataSource, redraw: boolean = true, clear: boolean = true, emit: boolean = true): void {
     if (clear)
       cds.selection_manager.clear()
@@ -220,8 +224,8 @@ export class PCPSelectionView extends BoxSelectToolView {
       const cds = this.cds_select
       const {ykey} = this._cds_select_keys
       const {ys: current_ys, hs} = this._base_box_parameters
-      const ysmax = Math.max(this.yscale.compute(1), this.yscale.compute(0))  - hs / 2
-      const ysmin =  Math.min(this.yscale.compute(1), this.yscale.compute(0)) + hs / 2
+      const ysmax = Math.max(this.yscale.compute(1), this.yscale.compute(0)) - hs / 2
+      const ysmin = Math.min(this.yscale.compute(1), this.yscale.compute(0)) + hs / 2
       const new_ys = Math.max(Math.min(current_ys + delta_ys, ysmax), ysmin)
       cds.get_array<number>(ykey)[index_box] = this.yscale.invert(new_ys)
       this._emit_cds_changes(cds, true, false, false)
@@ -230,7 +234,6 @@ export class PCPSelectionView extends BoxSelectToolView {
   }
   
   _update_box_height(index_box: number, sy: number): void {
-    console.log("update height")
     if (this._base_box_parameters != null) {
       const cds = this.cds_select
       const {hkey} = this._cds_select_keys
@@ -241,9 +244,7 @@ export class PCPSelectionView extends BoxSelectToolView {
       this._emit_cds_changes(cds, true, false, false)
       this._update_selection_indices(index_box, this.yscale.r_invert(ys - new_hs/2, ys + new_hs/2))
     }
-    
   }
-  
   
   _update_overlay_bbox(index_box: number): void {
     if (index_box >= 0 && this.model.active){
@@ -270,7 +271,6 @@ export class PCPSelectionView extends BoxSelectToolView {
   }
   
   _resize(ev: PanEvent): void {
-    console.log("Resize")
     if (this.ind_active_box != null) {
       this._update_box_height(this.ind_active_box, ev.sy)
       this._update_overlay_bbox(this.ind_active_box)
@@ -285,9 +285,8 @@ export class PCPSelectionView extends BoxSelectToolView {
   _pan_start(ev: PanEvent) {
     this.panning = true
     if (this.action=="add")
-    super._pan_start(ev)
+      super._pan_start(ev)
     else if (this.action=="drag" || this.action=="resize") {
-      console.log("drag or resize")
       if (this.ind_active_box != null) {
         this._base_point = [ev.sx, ev.sy]
         this._base_box_parameters = this._box_screen_paramaters(this.ind_active_box)

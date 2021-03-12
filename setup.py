@@ -72,6 +72,7 @@ except Exception:
 
 install_requires = [
     'bokeh >=2.3.0,<2.4.0',
+    'panel'
 ]
 
 setup_args = dict(
