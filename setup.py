@@ -83,13 +83,11 @@ setup_args = dict(
     author_email="xavier.artusi@cea.fr",
     platforms=['Windows', 'Mac OS X', 'Linux'],
     license='BSD',
-    url='http://panel.holoviz.org',
     cmdclass=_COMMANDS,
     packages=find_packages(),
     include_package_data=True,
     classifiers=[
         "License :: OSI Approved :: BSD License",
-        "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
@@ -111,11 +109,6 @@ setup_args = dict(
         "Topic :: Office/Business :: Financial",
         "Topic :: Software Development :: Libraries"],
     python_requires=">=3.6",
-    entry_points={
-        'console_scripts': [
-            'panel = panel.command:main'
-        ]
-    },
     install_requires=install_requires,
 )
 
