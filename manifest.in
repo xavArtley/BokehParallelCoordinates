@@ -1,0 +1,2 @@
+include pcp/bokeh.ext.json
+graft pcp/dist
