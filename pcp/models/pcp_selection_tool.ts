@@ -85,6 +85,7 @@ export class PCPSelectionView extends BoxSelectToolView {
     indices: number[]
   }[] //must be synchronize with element of cds_select
   private is_mouse_down: boolean = false
+  private mouse_up_handler: EventListenerOrEventListenerObject
   
   initialize(): void {
     super.initialize()
@@ -111,7 +112,8 @@ export class PCPSelectionView extends BoxSelectToolView {
     this.selection_indices = []
 
     this.hit_area.addEventListener("mousedown", (ev: MouseEvent) => this._mouse_down(ev))
-    this.hit_area.addEventListener("mouseup", () => this._mouse_up())
+    this.mouse_up_handler = () => this._mouse_up()
+    document.addEventListener("mouseup", this.mouse_up_handler)
   }
 
   get frame(): CartesianFrame {
@@ -124,6 +126,16 @@ export class PCPSelectionView extends BoxSelectToolView {
     this.connect(this.frame.x_ranges.get(x_range_name_select)!.change, () => this._resize_boxes_on_zoom())
     this.connect(this.cds_select.change, () => this._update_data_selection())
     this.connect(this.model.properties.active.change, () => (!this.model.active) ? this._update_overlay_bbox(-1): null)
+    this.connect(this.cds_data.selected.properties.indices.change, () => {
+      if(!this.is_mouse_down)
+        this.model.indices_throttled = this.cds_data.selected.indices
+      this.model.renderer_data.change.emit()
+    })
+  }
+
+  remove() {
+    document.removeEventListener("mouseup", this.mouse_up_handler)
+    super.remove()
   }
   
   get hit_area(): HTMLElement {
@@ -164,6 +176,7 @@ export class PCPSelectionView extends BoxSelectToolView {
   
   _mouse_up(): void {
     this.is_mouse_down = false
+    this.model.indices_throttled = this.cds_data.selected.indices
   }
 
   _emit_cds_changes(cds: ColumnarDataSource, redraw: boolean = true, clear: boolean = true, emit: boolean = true): void {
@@ -373,6 +386,8 @@ export class PCPSelectionView extends BoxSelectToolView {
       ...combined_selections.slice(1).map(elem => union<number>(...elem.indices)))
     }
     this.cds_data.selected.indices = selection_indices
+    if (!this.is_mouse_down)
+      this.model.indices_throttled = this.cds_data.selected.indices
     this.cds_data.change.emit()
   }
   
@@ -431,6 +446,7 @@ export namespace PCPSelectionTool {
     renderer_select: p.Property<GlyphRenderer & HasRectCDS>
     renderer_data: p.Property<GlyphRenderer & HasMultiLineCDS>
     box_width: p.Property<number>
+    indices_throttled: p.Property<number[]>
   }
 }
 
@@ -445,10 +461,11 @@ export class PCPSelectionTool extends BoxSelectTool {
   static init_PCPSelectionTool(): void {
     this.prototype.default_view = PCPSelectionView
     
-    this.define<PCPSelectionTool.Props>(({Number, AnyRef}) => ({
-      renderer_select: [ AnyRef<GlyphRenderer & HasRectCDS>() ],
-      renderer_data:   [ AnyRef<GlyphRenderer & HasMultiLineCDS>() ],
-      box_width:       [ Number, 30 ],
+    this.define<PCPSelectionTool.Props>(({Number, AnyRef, Array}) => ({
+      renderer_select:    [ AnyRef<GlyphRenderer & HasRectCDS>() ],
+      renderer_data:      [ AnyRef<GlyphRenderer & HasMultiLineCDS>() ],
+      box_width:          [ Number, 30 ],
+      indices_throttled:  [ Array(Number) ],
     }))
   }
   
