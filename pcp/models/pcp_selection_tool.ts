@@ -129,7 +129,6 @@ export class PCPSelectionView extends BoxSelectToolView {
     this.connect(this.cds_data.selected.properties.indices.change, () => {
       if(!this.is_mouse_down)
         this.model.indices_throttled = this.cds_data.selected.indices
-      this.model.renderer_data.change.emit()
     })
   }
 
@@ -388,7 +387,6 @@ export class PCPSelectionView extends BoxSelectToolView {
     this.cds_data.selected.indices = selection_indices
     if (!this.is_mouse_down)
       this.model.indices_throttled = this.cds_data.selected.indices
-    this.cds_data.change.emit()
   }
   
   _make_selection_indices(indices: number[], [y0, y1]: [number, number]) {
