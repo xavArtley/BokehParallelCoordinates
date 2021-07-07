@@ -1,0 +1,23 @@
+from bokeh.core.properties import List, String, Either, Tuple
+from bokeh.models import InputWidget
+
+
+class MSFMultiSelect(InputWidget):
+    ''' Multi-select widget.
+
+    '''
+
+    options = List(Either(String, Tuple(String, String)), help="""
+    Available selection options. Options may be provided either as a list of
+    possible string values, or as a list of tuples, each of the form
+    ``(value, label)``. In the latter case, the visible widget text for each
+    value will be corresponding given label.
+    """)
+
+    value = List(String, help="""
+    Initial or selected values.
+    """)
+
+    __css__ = "./static/extensions/pcp/css/msfmultiselect.css"
+
+    __javascript__ = "./static/extensions/pcp/js/msfmultiselect.js"
