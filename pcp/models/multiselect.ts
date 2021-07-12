@@ -16,9 +16,14 @@ export class MSFMultiSelectView extends InputWidgetView {
   connect_signals(): void {
     super.connect_signals()
     this.on_change(this.model.properties.value, () => {
-        console.log("Change")
-        this.msfselect.removeValue(this.msfselect.getData())
-        this.msfselect.setValue(this.model.value)
+        const _old = <string[]> this.msfselect.getData()
+        const _new = this.model.value
+        const values_to_set = _new.filter(item => !_old.includes(item))
+        const values_to_remove = _old.filter(item => !_new.includes(item))
+        if (values_to_remove.length>0)
+          this.msfselect.removeValue(values_to_remove)
+        if (values_to_set.length>0)
+          this.msfselect.setValue(values_to_set)
     })
   }
 
@@ -54,6 +59,7 @@ export class MSFMultiSelectView extends InputWidgetView {
     this.msfselect.setValue(this.model.value)
     this.msfselect.container.style.width = "100%"
     this.msfselect.container.style.height = "100%"
+    this.msfselect.logger.classList.add("bk-input")
     this.msfselect.logger.style.display = "flex"
     this.msfselect.logger.style.flexDirection = "row"
     this.msfselect.logger.style.flexWrap = "wrap"

@@ -5,7 +5,7 @@ from bokeh.sampledata.airports import data
 
 options = [(str(i),str(n)) for i,n in zip(data["name"].index, data["name"])]
 
-m1 = MSFMultiSelect(options=options, height=400, width=400)
+m1 = MSFMultiSelect(options=options, height=80, width=400)
 m2 = MultiSelect(options=options)
 
 m1.on_change("value", lambda attr, old, new: setattr(m2,"value", new))
