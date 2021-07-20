@@ -1,4 +1,4 @@
-from bokeh.core.properties import List, String, Either, Tuple
+from bokeh.core.properties import List, String, Either, Tuple, Bool
 from bokeh.models import InputWidget
 
 
@@ -6,6 +6,10 @@ class MSFMultiSelect(InputWidget):
     ''' Multi-select widget.
 
     '''
+
+    searchbox = Bool(default=True)
+
+    selectall = Bool(default=True)
 
     options = List(Either(String, Tuple(String, String)), help="""
     Available selection options. Options may be provided either as a list of
