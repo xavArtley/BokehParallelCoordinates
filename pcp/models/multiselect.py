@@ -24,4 +24,3 @@ class MSFMultiSelect(InputWidget):
 
     __css__ = "./static/extensions/pcp/css/msfmultiselect.css"
 
-    __javascript__ = "./static/extensions/pcp/js/msfmultiselect.js"
