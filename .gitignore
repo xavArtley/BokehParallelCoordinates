@@ -1,7 +1,6 @@
 .bokeh
 .vscode/
 __pycache__/
-pcp/dist/
 node_modules/
 pcp.egg-info/
 .ipynb_checkpoints/
