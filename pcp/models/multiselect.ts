@@ -31,11 +31,11 @@ export class MSFMultiSelectView extends InputWidgetView {
        console.log(this.model.value)
        this._set_values(this.model.value)
     })
+    this.on_change(this.model.properties.theme, () => this._toggle_theme())
   }
 
   render(): void {
     super.render()
-
     const options = this.model.options.map((opt) => {
         let value, _label
         if (isString(opt))
@@ -121,7 +121,13 @@ export class MSFMultiSelectView extends InputWidgetView {
     
     this._set_event_listeners()
     this._update_logger()
-    
+    this._toggle_theme()
+  }
+
+  _toggle_theme(): void {
+    const theme = this.model.theme
+    this.container.classList.toggle(theme, true)
+    this.elems.classList.toggle(theme, true)
   }
 
   _create_search_box(): void {
@@ -131,7 +137,7 @@ export class MSFMultiSelectView extends InputWidgetView {
     const liSearchEl = document.createElement('li')
     liSearchEl.className = "ignore"
     this.searchbox = input({
-      type: "text",
+      type: "search",
       placeholder: "Search",
       class: "searchbox"
     })
@@ -171,6 +177,7 @@ export class MSFMultiSelectView extends InputWidgetView {
     })
 
     this.searchbox.addEventListener('keyup', () => this._search())
+    this.searchbox.addEventListener('search', () => this._search())
     this.selectall.querySelector("button.select")?.addEventListener('click', () => {
       this._udpate_values(this.all_values_visible, true)
     })
@@ -324,6 +331,7 @@ export namespace MSFMultiSelect {
       selectall: p.Property<boolean>
       value: p.Property<string[]>
       options: p.Property<(string | [string, string])[]>
+      theme: p.Property<string>
     }
   }
   
@@ -347,6 +355,7 @@ export namespace MSFMultiSelect {
         selectall: [Boolean, true],
         value:   [ Array(String), [] ],
         options: [ Array(Or(String, Tuple(String, String))), [] ],
+        theme: [ String, "light" ],
       }))
     }
   }

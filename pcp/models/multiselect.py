@@ -22,5 +22,4 @@ class MSFMultiSelect(InputWidget):
     Initial or selected values.
     """)
 
-    __css__ = "./static/extensions/pcp/css/msfmultiselect.css"
-
+    theme = String(default="light")
