@@ -2,7 +2,7 @@ from bokeh.core.properties import List, String, Either, Tuple, Bool
 from bokeh.models import InputWidget
 
 
-class MSFMultiSelect(InputWidget):
+class PCPMultiSelect(InputWidget):
     ''' Multi-select widget.
 
     '''

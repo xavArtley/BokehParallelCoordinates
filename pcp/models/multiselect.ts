@@ -5,10 +5,10 @@ import * as p from "@bokehjs/core/properties"
 import {InputWidget, InputWidgetView} from "@bokehjs/models/widgets/input_widget"
 import * as inputs from "@bokehjs/styles/widgets/inputs.css"
 
-export declare const MSFmultiSelect: any
+export declare const PCPmultiSelect: any
 
-export class MSFMultiSelectView extends InputWidgetView {
-  model: MSFMultiSelect
+export class PCPMultiSelectView extends InputWidgetView {
+  model: PCPMultiSelect
 
   protected input_el: HTMLSelectElement
   private logger: HTMLSpanElement
@@ -59,7 +59,7 @@ export class MSFMultiSelectView extends InputWidgetView {
     // CONTAINER
     this.container = div(
       {
-        class: "msf_multiselect_container",
+        class: "pcp_multiselect_container",
         style: "width: 100%; height: 100%;"
       }
     )
@@ -79,7 +79,7 @@ export class MSFMultiSelectView extends InputWidgetView {
     
     // LIST OPTIONS
     this.elems = createElement("ul", {
-      class: "msf_multiselect hidden",
+      class: "pcp_multiselect hidden",
       style: "width: 100%"
     })
 
@@ -323,7 +323,7 @@ export class MSFMultiSelectView extends InputWidgetView {
 }
 
 
-export namespace MSFMultiSelect {
+export namespace PCPMultiSelect {
     export type Attrs = p.AttrsOf<Props>
   
     export type Props = InputWidget.Props & {
@@ -335,22 +335,22 @@ export namespace MSFMultiSelect {
     }
   }
   
-  export interface MSFMultiSelect extends MSFMultiSelect.Attrs {}
+  export interface PCPMultiSelect extends PCPMultiSelect.Attrs {}
   
-  export class MSFMultiSelect extends InputWidget {
-    properties: MSFMultiSelect.Props
-    __view_type__: MSFMultiSelectView
+  export class PCPMultiSelect extends InputWidget {
+    properties: PCPMultiSelect.Props
+    __view_type__: PCPMultiSelectView
   
     static __module__ = "pcp.models.multiselect"
 
-    constructor(attrs?: Partial<MSFMultiSelect.Attrs>) {
+    constructor(attrs?: Partial<PCPMultiSelect.Attrs>) {
       super(attrs)
     }
   
-    static init_MSFMultiSelect(): void {
-      this.prototype.default_view = MSFMultiSelectView
+    static init_PCPMultiSelect(): void {
+      this.prototype.default_view = PCPMultiSelectView
   
-      this.define<MSFMultiSelect.Props>(({Boolean, String, Array, Tuple, Or}) => ({
+      this.define<PCPMultiSelect.Props>(({Boolean, String, Array, Tuple, Or}) => ({
         searchbox: [Boolean, true],
         selectall: [Boolean, true],
         value:   [ Array(String), [] ],

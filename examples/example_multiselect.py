@@ -1,11 +1,11 @@
 import panel as pn
 from bokeh.models import MultiSelect, CustomJS
-from pcp.models.multiselect import MSFMultiSelect
+from pcp.models.multiselect import PCPMultiSelect
 from bokeh.sampledata.airports import data
 
 options = [(str(i),str(n)) for i,n in zip(data["name"].index, data["name"])]
 
-m1 = MSFMultiSelect(options=options, height=80, width=400)
+m1 = PCPMultiSelect(options=options, height=80, width=400)
 m2 = MultiSelect(options=options)
 t = pn.widgets.Toggle(name="search")
 t.jslink(m1, value="searchbox")

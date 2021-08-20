@@ -1,0 +1,28 @@
+.pcp_multiselect_container.light .pcp_multiselect.light {
+  border: 1px solid #e4e4e4;
+}
+.pcp_multiselect.light li:hover, .pcp_multiselect li:focus{
+  background-color: #e5e5e5;
+}
+.pcp_multiselect.light li.active{
+  background-color: #e5e5e5;
+}
+.pcp_multiselect.light li{
+  background-color: #ffffff;
+}
+.pcp_multiselect_container.light .pcp_multiselect.light{
+  background-color: #757575;
+}
+.pcp_multiselect_container.light .logger .selectedLabels {
+  background: #f2f2f2;
+  border: 1px solid #e6e3e3;
+}
+.pcp_multiselect_container.light .closeBtn {
+  color: #ff6060;
+}
+.pcp_multiselect_container.light .logger {
+  border: 1px solid #b6b6b3;
+}
+.pcp_multiselect.light .searchbox:focus, .pcp_multiselect.light .searchbox:active {
+  border-bottom: 2px solid #ff6060;
+}

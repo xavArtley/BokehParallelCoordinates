@@ -1,4 +1,4 @@
-export {MSFMultiSelect} from "./multiselect"
+export {PCPMultiSelect} from "./multiselect"
 export {PCPBoxAnnotation} from "./pcp_box_annotation"
 export {PCPRect} from "./pcp_rect"
 export {PCPResetTool} from "./pcp_reset_tool"
