@@ -4,3 +4,8 @@ __pycache__/
 node_modules/
 pcp.egg-info/
 .ipynb_checkpoints/
+
+/pcp/dist/*.js
+/pcp/dist/*.js.map
+/pcp/dist/pcp.json
+/pcp/dist/lib/
