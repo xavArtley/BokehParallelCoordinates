@@ -17,6 +17,7 @@ export class PCPMultiSelectView extends InputWidgetView {
   private searchbox: HTMLInputElement
   private selectall: HTMLLIElement
   private checkboxes: HTMLInputElement[]
+  private current_theme: string
 
   connect_signals(): void {
     super.connect_signals()
@@ -28,7 +29,6 @@ export class PCPMultiSelectView extends InputWidgetView {
       this.selectall.parentElement?.parentElement?.classList.toggle("hidden", !this.model.selectall)
     })
     this.on_change(this.model.properties.value, () => {
-       console.log(this.model.value)
        this._set_values(this.model.value)
     })
     this.on_change(this.model.properties.theme, () => this._toggle_theme())
@@ -80,7 +80,7 @@ export class PCPMultiSelectView extends InputWidgetView {
     // LIST OPTIONS
     this.elems = createElement("ul", {
       class: "pcp_multiselect hidden",
-      style: "width: 100%"
+      style: "width: 100%; min-width: 156px;"
     })
 
     this._create_search_box()
@@ -119,15 +119,20 @@ export class PCPMultiSelectView extends InputWidgetView {
     this.group_el.appendChild(this.input_el)
     this.group_el.appendChild(this.input_el)
     
+    this.current_theme = this.model.theme
+    this._toggle_theme()
+
     this._set_event_listeners()
     this._update_logger()
-    this._toggle_theme()
+
   }
 
   _toggle_theme(): void {
-    const theme = this.model.theme
-    this.container.classList.toggle(theme, true)
-    this.elems.classList.toggle(theme, true)
+    this.container.classList.toggle(this.current_theme, false)
+    this.elems.classList.toggle(this.current_theme, false)
+    this.current_theme = this.model.theme
+    this.container.classList.toggle(this.current_theme, true)
+    this.elems.classList.toggle(this.current_theme, true)
   }
 
   _create_search_box(): void {

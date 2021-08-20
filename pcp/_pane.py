@@ -3,9 +3,22 @@ import param
 import pandas as pd
 
 from panel.pane.base import PaneBase
+from panel.widgets.select import _MultiSelectBase
 from bokeh.core.properties import ColorHex
+from .models.multiselect import PCPMultiSelect
 from .models.pcp_selection_tool import PCPSelectionTool
 from .plot.pcp_plot import _parallel_plot
+
+
+class MultiSelect(_MultiSelectBase):
+
+    _widget_type = PCPMultiSelect
+
+    theme = param.ObjectSelector(default="light", objects=["light", "dark"])
+
+    searchbox = param.Boolean(default=True)
+
+    selectall = param.Boolean(default=True)
 
 
 class ParallelCoordinatePane(PaneBase):
