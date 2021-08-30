@@ -6,4 +6,5 @@ for cssf in glob(str(Path(__file__).parent / "dist" / "css" / "*.css")):
     if not cssf in config.css_files:
         config.css_files.append(cssf)
 
-from ._pane import ParallelCoordinatePane, MultiSelect
+from .panes import ParallelCoordinatePane as ParallelCoordinates
+from .widgets import MultiSelect
