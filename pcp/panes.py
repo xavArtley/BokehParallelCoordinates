@@ -31,9 +31,11 @@ class ParallelCoordinatePane(PaneBase):
     box_fill_color = param.Color(default="#009933")
     box_fill_alpha = param.Number(default=0.7, bounds=(0, 1))
 
+    extra_kwargs= param.Dict(default={})
+
 
     _rename = {
-        "drop": None, "selection": "indices"
+        "drop": None, "selection": "indices", "extra_kwargs": None
     }
 
     _visual_options = ["line_color", "line_alpha", "line_width", "nonselection_line_color",
@@ -57,7 +59,7 @@ class ParallelCoordinatePane(PaneBase):
 
     def _get_model(self, doc, root=None, parent=None, comm=None):
         visual_params = {p: getattr(self,p) for p in self._visual_options}
-        model = parallel_plot(self.object, drop=self.drop, **visual_params)
+        model = parallel_plot(self.object, drop=self.drop, **visual_params, **self.extra_kwargs)
         pcp_sel_tool = model.select_one(PCPSelectionTool)
         self._renderer_multiline = pcp_sel_tool.renderer_data
         self._selected = self._renderer_multiline.data_source.selected

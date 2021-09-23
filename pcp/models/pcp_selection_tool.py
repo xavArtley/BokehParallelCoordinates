@@ -1,4 +1,4 @@
-from bokeh.core.properties import Float, Instance, List, Int
+from bokeh.core.properties import Float, Instance, List, Int, Bool
 from bokeh.models import ActionTool, BoxSelectTool, Renderer
 
 
@@ -15,5 +15,5 @@ class PCPSelectionTool(BoxSelectTool):
     renderer_data = Instance(Renderer, help="MultiLine glyph of the data")
 
     box_width = Float(help="Width size in the screen coordinate of selection boxes")
-    
+
     indices_throttled = List(item_type=Int)

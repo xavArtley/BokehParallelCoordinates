@@ -31,8 +31,11 @@ type BoxScreenParameters = {
 }
 
 function find_indices_in(array: number[], [inf, sup]: [number, number]): number[] {
-  return array.reduce((prev: number[], curr, index) =>
-  (inf <= curr && curr <= sup) ? prev.concat(index) : prev, [])
+  return array.reduce((prev, curr, index) => {
+    if (inf <= curr && curr <= sup)
+     prev.push(index)
+    return prev
+  }, <number[]>[])
 }
 
 function index_array(array: number[], indices: number[]): number[] {
@@ -67,11 +70,9 @@ function combineByKey(key: string, array: any[]) {
 
 export class PCPSelectionView extends BoxSelectToolView {
   model: PCPSelectionTool
-  
+
   private xscale: Scale
   private yscale: Scale
-  private xdata: number[]
-  private ydataT: number[][]
   private cds_select: ColumnDataSource
   private cds_data: ColumnDataSource
   private glyph_select: Rect
@@ -86,34 +87,39 @@ export class PCPSelectionView extends BoxSelectToolView {
   }[] //must be synchronize with element of cds_select
   private is_mouse_down: boolean = false
   private mouse_up_handler: EventListenerOrEventListenerObject
-  
+
   initialize(): void {
     super.initialize()
-    
+
     const {x_range_name: x_range_name_select, y_range_name: y_range_name_select} = this.model.renderer_select
     const {x_range_name: x_range_name_data, y_range_name: y_range_name_data} = this.model.renderer_data
-    
+
     if (x_range_name_select == x_range_name_data && y_range_name_select == y_range_name_data) {
       this.xscale = this.frame.x_scales.get(x_range_name_select)!
       this.yscale = this.frame.y_scales.get(y_range_name_select)!
     } else
       throw new Error("selection and data does not share the same ranges")
-    
+
     //TODO test if parallel CDS is valid (xs for each line should be identical)
     this.glyph_select = this.model.renderer_select.glyph
     this.glyph_data = this.model.renderer_data.glyph
-    
+
     this.cds_select = this.model.renderer_select.data_source
     this.cds_data = this.model.renderer_data.data_source
-    
-    const [xskey, yskey] = [(this.glyph_data as any).xs.field, (this.glyph_data as any).ys.field]
-    this.xdata = this.cds_data.get_array(xskey)[0] as number[]
-    this.ydataT = transpose(this.cds_data.get_array(yskey))
+
     this.selection_indices = []
 
     this.hit_area.addEventListener("mousedown", (ev: MouseEvent) => this._mouse_down(ev))
     this.mouse_up_handler = () => this._mouse_up()
     document.addEventListener("mouseup", this.mouse_up_handler)
+  }
+
+  get xdata(): number[] {
+    return this.cds_data.get_array((this.glyph_data as any).xs.field)[0] as number[]
+  }
+
+  get ydataT(): number[][] {
+    return transpose(this.cds_data.get_array((this.glyph_data as any).ys.field))
   }
 
   get frame(): CartesianFrame {
@@ -124,7 +130,15 @@ export class PCPSelectionView extends BoxSelectToolView {
     super.connect_signals()
     const {x_range_name: x_range_name_select} = this.model.renderer_select
     this.connect(this.frame.x_ranges.get(x_range_name_select)!.change, () => this._resize_boxes_on_zoom())
-    this.connect(this.cds_select.change, () => this._update_data_selection())
+    this.connect(this.cds_select.change, () => {
+      this._update_data_selection()
+    })
+    this.connect(this.model.properties.invalidate_selection.change, () => {
+      if (this.model.invalidate_selection) {
+        this._recompute_selection_indices()
+        this.model.setv({invalidate_selection: false}, {silent: true})
+      }
+    })
     this.connect(this.model.properties.active.change, () => (!this.model.active) ? this._update_overlay_bbox(-1): null)
     this.connect(this.cds_data.selected.properties.indices.change, () => {
       if(!this.is_mouse_down)
@@ -136,19 +150,19 @@ export class PCPSelectionView extends BoxSelectToolView {
     document.removeEventListener("mouseup", this.mouse_up_handler)
     super.remove()
   }
-  
+
   get hit_area(): HTMLElement {
     return this.plot_view.canvas_view.events_el
   }
-  
+
   get overlay_view(): BoxAnnotationView {
     return (this.plot_view.get_renderer_views().filter(view => view.model===this.model.overlay)[0] as any)
   }
-  
+
   get _box_width(): number {
     return Math.abs(this.xscale.invert(this.model.box_width) - this.xscale.invert(0))
   }
-  
+
   get _cds_select_keys() {
     const glyph_select: any = this.glyph_select
     const [xkey, ykey] = [glyph_select.x.field, glyph_select.y.field]
@@ -172,7 +186,7 @@ export class PCPSelectionView extends BoxSelectToolView {
       this.action = "add"
     }
   }
-  
+
   _mouse_up(): void {
     this.is_mouse_down = false
     this.model.indices_throttled = this.cds_data.selected.indices
@@ -188,24 +202,24 @@ export class PCPSelectionView extends BoxSelectToolView {
       cds.properties.data.change.emit()
     }
   }
-  
+
   _box_screen_paramaters(index: number): BoxScreenParameters {
     const {xkey, ykey, wkey, hkey} = this._cds_select_keys
     const x = this.cds_select.get_array<number>(xkey)[index]
     const y = this.cds_select.get_array<number>(ykey)[index]
     const w = this.cds_select.get_array<number>(wkey)[index]
     const h = this.cds_select.get_array<number>(hkey)[index]
-    
+
     const xs = this.xscale.compute(x)
     const r_xs = this.xscale.r_compute(x-w/2, x+w/2)
     const ws = Math.abs(r_xs[1]-r_xs[0])
-    
+
     const ys = this.yscale.compute(y)
     const r_ys = this.yscale.r_compute(y-h/2, y+h/2)
     const hs = Math.abs(r_ys[1]-r_ys[0])
     return {xs, ys, ws, hs}
   }
-  
+
   _hit_test_boxes(sx: number, sy: number): number | null {
     const nboxes = this.cds_select.get_length()
     if (nboxes) {
@@ -215,13 +229,13 @@ export class PCPSelectionView extends BoxSelectToolView {
         const xs1 = Math.max(xs - ws/2, xs + ws/2) + EDGE_TOLERANCE
         const ys0 = Math.min(ys - hs/2, ys + hs/2) - EDGE_TOLERANCE
         const ys1 = Math.max(ys - hs/2, ys + hs/2) + EDGE_TOLERANCE
-        
+
         if (sx >= xs0 && sx <= xs1 && sy >= ys0 && sy <= ys1) return i
       }
     }
     return null
   }
-  
+
   _resize_boxes_on_zoom() {
     //resize selection boxes when zooming to keep a constant (pixel) size
     const cds = this.cds_select
@@ -230,7 +244,7 @@ export class PCPSelectionView extends BoxSelectToolView {
     array_width.forEach((_, i) => array_width[i] = new_width)
     this._emit_cds_changes(cds, true, false, false)
   }
-  
+
   _update_box_ypos(index_box: number, delta_ys: number): void {
     if (this._base_box_parameters != null) {
       const cds = this.cds_select
@@ -244,7 +258,7 @@ export class PCPSelectionView extends BoxSelectToolView {
       this._update_selection_indices(index_box, this.yscale.r_invert(new_ys - hs/2, new_ys + hs/2))
     }
   }
-  
+
   _update_box_height(index_box: number, sy: number): void {
     if (this._base_box_parameters != null) {
       const cds = this.cds_select
@@ -257,7 +271,7 @@ export class PCPSelectionView extends BoxSelectToolView {
       this._update_selection_indices(index_box, this.yscale.r_invert(ys - new_hs/2, ys + new_hs/2))
     }
   }
-  
+
   _update_overlay_bbox(index_box: number): void {
     if (index_box >= 0 && this.model.active){
       const cds = this.cds_select
@@ -273,7 +287,7 @@ export class PCPSelectionView extends BoxSelectToolView {
       (<any> this.overlay_view).bbox = new BBox({x0: 0, y0: 0, x1: 0, y1: 0})
     }
   }
-  
+
   _drag(ev: PanEvent) {
     if (this.ind_active_box != null && this._base_point != null) {
       const delta_ys = ev.sy - this._base_point[1]
@@ -281,19 +295,19 @@ export class PCPSelectionView extends BoxSelectToolView {
       this._update_overlay_bbox(this.ind_active_box)
     }
   }
-  
+
   _resize(ev: PanEvent): void {
     if (this.ind_active_box != null) {
       this._update_box_height(this.ind_active_box, ev.sy)
       this._update_overlay_bbox(this.ind_active_box)
     }
   }
-  
+
   _drag_stop(_ev: PanEvent) {
     this._base_point = null
     this._base_box_parameters = null
   }
-  
+
   _pan_start(ev: PanEvent) {
     this.panning = true
     if (this.action=="add")
@@ -305,7 +319,7 @@ export class PCPSelectionView extends BoxSelectToolView {
       }
     }
   }
-  
+
   _pan(ev: PanEvent) {
     switch (this.action) {
       case "add": {
@@ -322,16 +336,12 @@ export class PCPSelectionView extends BoxSelectToolView {
       }
     }
   }
-  
+
   _pan_end(ev: PanEvent) {
     switch (this.action) {
       case "add": {
         super._pan_end(ev)
-        const nb_boxes = this.cds_select.get_length()
-        if (nb_boxes)
-        this._update_overlay_bbox(nb_boxes-1)
-        else
-        this._update_overlay_bbox(-1)
+        this._update_overlay_bbox(this.cds_select.get_length()!-1)
         break
       }
       case "drag": {
@@ -344,14 +354,14 @@ export class PCPSelectionView extends BoxSelectToolView {
     }
     this.panning = false
   }
-  
+
   _move(ev: MoveEvent) {
     if (this.panning || this.is_mouse_down) return
     this.ind_active_box = this._hit_test_boxes(ev.sx, ev.sy)
     if (this.ind_active_box != null)
     this._update_overlay_bbox(this.ind_active_box)
   }
-  
+
   _doubletap(_ev: TapEvent) {
     //delete box on double tap
     if (this.ind_active_box != null) {
@@ -362,7 +372,7 @@ export class PCPSelectionView extends BoxSelectToolView {
       this._emit_cds_changes(this.cds_select)
     }
   }
-  
+
   _keyup(ev: KeyEvent) {
     if (ev.keyCode == Keys.Esc) {
       const nelems = this.cds_select.get_length()
@@ -376,7 +386,7 @@ export class PCPSelectionView extends BoxSelectToolView {
       this.plot_view.request_render()
     }
   }
-  
+
   _update_data_selection() {
     let selection_indices: number[] = []
     if (this.selection_indices.length > 0) {
@@ -388,7 +398,7 @@ export class PCPSelectionView extends BoxSelectToolView {
     if (!this.is_mouse_down)
       this.model.indices_throttled = this.cds_data.selected.indices
   }
-  
+
   _make_selection_indices(indices: number[], [y0, y1]: [number, number]) {
     this.selection_indices.push(...indices.map(index => {
       return {
@@ -397,22 +407,22 @@ export class PCPSelectionView extends BoxSelectToolView {
       }
     }))
   }
-  
+
   _update_selection_indices(index: number, [y0, y1]: [number, number]) {
     this.selection_indices[index].indices = find_indices_in(this.ydataT[this.selection_indices[index].data_idx], [y0, y1])
   }
-  
+
   _delete_selection_indices(index: number) {
     this.selection_indices.splice(index, 1)
   }
-  
+
   _make_box_select(xs: number[], [y0, y1]: [number, number]): void {
     y0 = Math.max(0, y0)
     y1 = Math.min(1, y1)
     const y = (y0 + y1) / 2.
     const w = this._box_width
     const h = (y1 - y0)
-    
+
     const {xkey, ykey, wkey, hkey} = this._cds_select_keys
     xs.forEach(x => {
       if (xkey) this.cds_select.get_array(xkey).push(x)
@@ -422,29 +432,46 @@ export class PCPSelectionView extends BoxSelectToolView {
     })
     this._emit_cds_changes(this.cds_select)
   }
-  
+
   _do_select([sx0, sx1]: [number, number], [sy0, sy1]: [number, number], _final: boolean = true, _mode: SelectionMode): void {
+    console.log("do select")
     // Get selection bbox in the data space
     const [x0, x1] = this.xscale.r_invert(sx0, sx1)
     const [y0, y1] = this.yscale.r_invert(sy0, sy1)
-    
+
     const x_indices = find_indices_in(this.xdata, [x0, x1])
-    
+
     const xs = index_array(this.xdata, x_indices)
-    
+
     this._make_selection_indices(x_indices, [y0, y1])
     this._make_box_select(xs, [y0, y1])
+  }
+
+  _recompute_selection_indices(): void{
+    console.log("recompute")
+    this.selection_indices.splice(0, this.selection_indices.length)
+    const {xkey, ykey, wkey, hkey} = this._cds_select_keys
+    const x = this.cds_select.get_array<number>(xkey)
+    const y = this.cds_select.get_array<number>(ykey)
+    const w = this.cds_select.get_array<number>(wkey)
+    const h = this.cds_select.get_array<number>(hkey)
+    const xdata = this.xdata
+    for (let i=0; i<this.cds_select.length; i++){
+      const x_indices = find_indices_in(xdata, [x[i]-w[i]/2, x[i]+w[i]/2])
+      this._make_selection_indices(x_indices, [y[i]-h[i]/2, y[i]+h[i]/2])
+    }
   }
 }
 
 export namespace PCPSelectionTool {
   export type Attrs = p.AttrsOf<Props>
-  
+
   export type Props = BoxSelectTool.Props & {
     renderer_select: p.Property<GlyphRenderer & HasRectCDS>
     renderer_data: p.Property<GlyphRenderer & HasMultiLineCDS>
     box_width: p.Property<number>
     indices_throttled: p.Property<number[]>
+    invalidate_selection: p.Property<boolean>
   }
 }
 
@@ -453,26 +480,31 @@ export interface PCPSelectionTool extends PCPSelectionTool.Attrs {}
 export class PCPSelectionTool extends BoxSelectTool {
   properties: PCPSelectionTool.Props
   __view_type__: PCPSelectionView
-  
+
   static __module__ = "pcp.models.pcp_selection_tool"
-  
+
   static init_PCPSelectionTool(): void {
     this.prototype.default_view = PCPSelectionView
-    
+
     this.define<PCPSelectionTool.Props>(({Number, AnyRef, Array}) => ({
-      renderer_select:    [ AnyRef<GlyphRenderer & HasRectCDS>() ],
-      renderer_data:      [ AnyRef<GlyphRenderer & HasMultiLineCDS>() ],
-      box_width:          [ Number, 30 ],
-      indices_throttled:  [ Array(Number) ],
+      renderer_select:       [ AnyRef<GlyphRenderer & HasRectCDS>() ],
+      renderer_data:         [ AnyRef<GlyphRenderer & HasMultiLineCDS>() ],
+      box_width:             [ Number, 30 ],
+      indices_throttled:     [ Array(Number) ],
     }))
+
+    this.internal<PCPSelectionTool.Props>(({Boolean}) => ({
+      invalidate_selection: [ Boolean,  false ],
+    }))
+
   }
-  
+
   initialize(): void {
     super.initialize()
     this.overlay.in_cursor = "grab"
     this.overlay.ns_cursor = "ns-resize"
   }
-  
+
   tool_name = "Parallel Selection"
   //override event_type property define in BoxSelectTool
   event_type: any = ["tap" as "tap", "pan" as "pan", "move" as "move", "press" as "press"]

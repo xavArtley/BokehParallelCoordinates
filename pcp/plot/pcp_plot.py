@@ -15,7 +15,7 @@ from bokeh.models import (
 from bokeh.palettes import Viridis256
 from bokeh.plotting import figure
 
-from ..models import PCPSelectionTool, PCPResetTool, PCPBoxAnnotation
+from ..models import PCPAxesMoveTool, PCPSelectionTool, PCPResetTool, PCPBoxAnnotation, PCPTicker
 
 def parallel_plot(df_raw, drop=None, **kwargs):
     """From a dataframe create a parallel coordinate plot"""
@@ -33,13 +33,29 @@ def parallel_plot(df_raw, drop=None, **kwargs):
             lambda elem: np.where(df[col].unique() == elem)[0].item()
         )
 
+    startend = kwargs.get("startend", {})
+    for col in df.columns:
+        if col not in startend:
+            startend.update({col: {"start":df[col].min(), "end":df[col].max()}})
+        else:
+            col_startend = startend.get(col)
+            if "start" not in col_startend:
+                col_startend.update({"start": df[col].min()})
+            if "end" not in col_startend:
+                col_startend.update({"end": df[col].max()})
+
     data_source = ColumnDataSource.from_df(df)
+
+    for col, val in df.iteritems():
+        df[col] = (val - startend[col]["start"]) / (startend[col]["end"] - startend[col]["start"])
+
     data_source.update(dict(
         __xs=np.arange(ndims)[None, :].repeat(npts, axis=0).tolist(),
-        __ys=np.array((df - df.min()) / (df.max() - df.min())).tolist(),
+        __ys=np.array(df).tolist(),
+        # __ys=np.array((df - df.min()) / (df.max() - df.min())).tolist(),
     ))
 
-    p = figure(
+    pcp_plot = figure(
         x_range=(-1, ndims),
         y_range=(0, 1),
         width=1000,
@@ -47,30 +63,24 @@ def parallel_plot(df_raw, drop=None, **kwargs):
         output_backend="webgl",
     )
 
-    # Create x axis ticks from columns contained in dataframe
-    fixed_x_ticks = FixedTicker(ticks=np.arange(ndims), minor_ticks=[])
-    formatter_x_ticks = FuncTickFormatter(
-        code="return columns[index]", args={"columns": df.columns}
-    )
-    p.xaxis.ticker = fixed_x_ticks
-    p.xaxis.formatter = formatter_x_ticks
-
-    p.yaxis.visible = False
-    p.y_range.start = 0
-    p.y_range.end = 1
-    p.y_range.bounds = (-0.1, 1.1)  # add a little padding around y axis
-    p.xgrid.visible = False
-    p.ygrid.visible = False
+    # y axes
+    pcp_plot.yaxis.visible = False
+    pcp_plot.y_range.start = 0
+    pcp_plot.y_range.end = 1
+    pcp_plot.y_range.bounds = (-0.1, 1.1)  # add a little padding around y axis
+    pcp_plot.xgrid.visible = False
+    pcp_plot.ygrid.visible = False
 
     # Create extra y axis for each dataframe column
+    pcp_axes = []
     tickformatter = BasicTickFormatter(precision=1)
     for index, col in enumerate(df.columns):
-        start = df[col].min()
-        end = df[col].max()
-        bound_min = start + abs(end - start) * (p.y_range.bounds[0] - p.y_range.start)
-        bound_max = end + abs(end - start) * (p.y_range.bounds[1] - p.y_range.end)
+        start = startend[col]["start"]
+        end = startend[col]["end"]
+        bound_min = start + abs(end - start) * (pcp_plot.y_range.bounds[0] - pcp_plot.y_range.start)
+        bound_max = end + abs(end - start) * (pcp_plot.y_range.bounds[1] - pcp_plot.y_range.end)
         range1d = Range1d(start=bound_min, end=bound_max, bounds=(bound_min, bound_max))
-        p.extra_y_ranges.update({col: range1d})
+        pcp_plot.extra_y_ranges.update({col: range1d})
         if col not in categorical_columns:
             fixedticks = FixedTicker(ticks=np.linspace(start, end, 8), minor_ticks=[])
             major_label_overrides = {}
@@ -79,17 +89,30 @@ def parallel_plot(df_raw, drop=None, **kwargs):
             major_label_overrides = {
                 i: str(name) for i, name in enumerate(df_raw[col].unique())
             }
-
-        p.add_layout(
+        pcp_axes.append(
             LinearAxis(
                 fixed_location=index,
                 y_range_name=col,
                 ticker=fixedticks,
                 formatter=tickformatter,
                 major_label_overrides=major_label_overrides,
-            ),
-            "right",
+                name="pcp_axis"
+            )
         )
+
+    [pcp_plot.add_layout(axis, "right") for axis in pcp_axes]
+
+    # Create x axis ticks depending of y axes positions
+    # fixed_x_ticks = FixedTicker(ticks=np.arange(ndims), minor_ticks=[])
+    pcp_x_ticks = PCPTicker(pcp_axes=pcp_axes, name="pcp_x_ticks")
+    formatter_x_ticks = FuncTickFormatter(
+        code="""
+            return pcp_axes.filter(axis=>axis.fixed_location==tick)[0].y_range_name
+        """,
+        args={"pcp_axes": pcp_axes}
+    )
+    pcp_plot.xaxis.ticker = pcp_x_ticks
+    pcp_plot.xaxis.formatter = formatter_x_ticks
 
     # create the data renderer ( MultiLine )
     # specify selected and non selected style
@@ -120,8 +143,8 @@ def parallel_plot(df_raw, drop=None, **kwargs):
     )
 
     #Multiline Renderer
-    parallel_renderer = p.multi_line(
-        xs="__xs", ys="__ys", source=data_source, **line_style
+    pcp_lines_renderer = pcp_plot.multi_line(
+        xs="__xs", ys="__ys", source=data_source, name="pcp_lines_renderer", **line_style
     )
 
     # Specify selection style
@@ -130,14 +153,14 @@ def parallel_plot(df_raw, drop=None, **kwargs):
     # Specify non selection style
     nonselected_lines = MultiLine(**non_selected_line_style)
 
-    parallel_renderer.selection_glyph = selected_lines
-    parallel_renderer.nonselection_glyph = nonselected_lines
-    p.y_range.start = p.y_range.bounds[0]
-    p.y_range.end = p.y_range.bounds[1]
+    pcp_lines_renderer.selection_glyph = selected_lines
+    pcp_lines_renderer.nonselection_glyph = nonselected_lines
+    pcp_plot.y_range.start = pcp_plot.y_range.bounds[0]
+    pcp_plot.y_range.end = pcp_plot.y_range.bounds[1]
 
     rect_source = ColumnDataSource({"x": [], "y": [], "width": [], "height": []})
 
-    rect_glyph = Rect(
+    pcp_rect_glyph = Rect(
         x="x",
         y="y",
         width="width",
@@ -146,10 +169,11 @@ def parallel_plot(df_raw, drop=None, **kwargs):
         line_width=kwargs.get("box_line_width",1),
         fill_alpha=kwargs.get("box_fill_alpha",0.7),
         fill_color=kwargs.get("box_fill_color","#009933"),
+        name="pcp_rect_glyph"
     )
-    selection_renderer = p.add_glyph(rect_source, rect_glyph)
+    pcp_selection_renderer = pcp_plot.add_glyph(rect_source, pcp_rect_glyph, name="pcp_selection_renderer")
 
-    overlay = PCPBoxAnnotation(
+    pcp_overlay = PCPBoxAnnotation(
         level="overlay",
         top_units="screen",
         left_units="screen",
@@ -161,19 +185,23 @@ def parallel_plot(df_raw, drop=None, **kwargs):
         line_alpha=1.0,
         line_width=2,
         line_dash=[4, 4],
+        name="pcp_overlay"
     )
 
-    selection_tool = PCPSelectionTool(
-        renderer_select=selection_renderer,
-        renderer_data=parallel_renderer,
+    pcp_selection_tool = PCPSelectionTool(
+        renderer_select=pcp_selection_renderer,
+        renderer_data=pcp_lines_renderer,
         box_width=kwargs.get("box_width", 10),
-        overlay=overlay,
+        overlay=pcp_overlay,
+        name="pcp_selection_tool"
     )
 
-    # custom resets (reset only axes not selections)
-    reset_axes = PCPResetTool()
+    # custom reset (reset only axes not selections)
+    pcp_reset_axes = PCPResetTool(name="pcp_reset_axes")
+
+    pcp_axes_move = PCPAxesMoveTool(name="pcp_axes_move", pcp_selection_tool=pcp_selection_tool)
 
     # add tools and activate selection ones
-    p.add_tools(selection_tool, reset_axes, WheelZoomTool())
-    p.toolbar.active_drag = selection_tool
-    return p
+    pcp_plot.add_tools(pcp_axes_move, pcp_selection_tool, pcp_reset_axes, WheelZoomTool())
+    pcp_plot.toolbar.active_drag = pcp_selection_tool
+    return pcp_plot
