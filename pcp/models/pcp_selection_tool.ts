@@ -555,10 +555,5 @@ export class PCPSelectionTool extends BoxSelectTool {
 
   tool_name = "Parallel Selection"
   //override event_type property define in BoxSelectTool
-  event_type: any = [
-    "tap" as "tap",
-    "pan" as "pan",
-    "move" as "move",
-    "press" as "press",
-  ]
+  event_type: any = ["tap" as "tap", "pan" as "pan", "move" as "move", "press" as "press"]
 }

@@ -60,8 +60,7 @@ def parallel_plot(df_raw, drop=None, **kwargs):
         x_range=(-1, ndims),
         y_range=(0, 1),
         width=1000,
-        tools=tools,
-        output_backend="webgl",
+        tools=tools
     )
 
     # y axes

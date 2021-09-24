@@ -10,7 +10,7 @@ selection_line_color = {
         palette=Viridis256, low=df[df.columns[0]].min(), high=df[df.columns[0]].max()
     ),
 }
-wd = pn.widgets.DataFrame(df, sizing_mode="stretch_width", height=300)
+wd = pn.widgets.DataFrame(df, sizing_mode="stretch_both", height=300)
 pc = ParallelCoordinates(
     df,
     drop=["name"],
@@ -19,6 +19,8 @@ pc = ParallelCoordinates(
     sizing_mode="stretch_both"
 )
 wd.link(pc, selection="selection", bidirectional=True)
-pn.Column(
-    pn.Card(wd, title="Table", sizing_mode="stretch_width"),
-    pn.Row(pn.Card(pc.controls()[0], scroll=True, sizing_mode="scale_height"), pc, sizing_mode="stretch_both"), sizing_mode="stretch_both").show()
+template = pn.template.FastGridTemplate(title="Parallel Coordinates example")
+template.sidebar.append(pc.controls()[0])
+template.main[:2,:] = wd
+template.main[2:6,:] = pc
+template.servable()

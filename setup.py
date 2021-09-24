@@ -71,7 +71,7 @@ except Exception:
 ########## dependencies ##########
 
 install_requires = [
-    'bokeh >=2.3.0,<2.4.0',
+    'bokeh >=2.3.0,<2.5.0',
     'panel'
 ]
 
