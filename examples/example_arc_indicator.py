@@ -1,7 +1,7 @@
 import panel as pn
 from pcp.indicators import ArcProgressIndicator
 
-indicator = ArcProgressIndicator(progress=10, background="#efebeb", 
+indicator = ArcProgressIndicator(progress=10, background="#efebeb",
                                  use_gradient=True, text_style={"fill": "gray"},
                                  format_options={"style": "decimal"},
                                  viewbox=[-2, -2, 24, 11],
@@ -11,7 +11,4 @@ indicator = ArcProgressIndicator(progress=10, background="#efebeb",
                                              ],
                                  gradient=[{"stop": 0, "color": "blue"}, {"stop": 1, "color": "red"}]
                                 )
-pn.Row(
-    indicator.controls()[0],
-    indicator
-).show()
+pn.Row(indicator.controls()[0], indicator).show()

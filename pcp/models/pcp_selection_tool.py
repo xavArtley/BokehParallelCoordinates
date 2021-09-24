@@ -1,5 +1,5 @@
-from bokeh.core.properties import Float, Instance, List, Int, Bool
-from bokeh.models import ActionTool, BoxSelectTool, Renderer
+from bokeh.core.properties import Float, Instance, List, Int
+from bokeh.models import BoxSelectTool, Renderer
 
 
 class PCPSelectionTool(BoxSelectTool):

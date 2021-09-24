@@ -33,7 +33,7 @@ def parallel_plot(df_raw, drop=None, **kwargs):
             lambda elem: np.where(df[col].unique() == elem)[0].item()
         )
 
-    startend = kwargs.get("startend", {})
+    startend = dict(kwargs.get("startend", {}))
     for col in df.columns:
         if col not in startend:
             startend.update({col: {"start":df[col].min(), "end":df[col].max()}})
@@ -55,11 +55,12 @@ def parallel_plot(df_raw, drop=None, **kwargs):
         # __ys=np.array((df - df.min()) / (df.max() - df.min())).tolist(),
     ))
 
+    tools = kwargs.get("tools", "pan, box_zoom, wheel_zoom")
     pcp_plot = figure(
         x_range=(-1, ndims),
         y_range=(0, 1),
         width=1000,
-        tools="pan, box_zoom",
+        tools=tools,
         output_backend="webgl",
     )
 
@@ -200,8 +201,9 @@ def parallel_plot(df_raw, drop=None, **kwargs):
     pcp_reset_axes = PCPResetTool(name="pcp_reset_axes")
 
     pcp_axes_move = PCPAxesMoveTool(name="pcp_axes_move", pcp_selection_tool=pcp_selection_tool)
-
     # add tools and activate selection ones
-    pcp_plot.add_tools(pcp_axes_move, pcp_selection_tool, pcp_reset_axes, WheelZoomTool())
+    extra_tools = list(kwargs.get("extra_tools", []))
+    extra_tools += [pcp_axes_move, pcp_selection_tool, pcp_reset_axes]
+    pcp_plot.add_tools(*extra_tools)
     pcp_plot.toolbar.active_drag = pcp_selection_tool
     return pcp_plot

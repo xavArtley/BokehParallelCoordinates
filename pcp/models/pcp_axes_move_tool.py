@@ -1,5 +1,5 @@
 from pcp.models.pcp_selection_tool import PCPSelectionTool
-from bokeh.core.properties import Instance, Bool
+from bokeh.core.properties import Instance
 from bokeh.models import GestureTool
 
 
